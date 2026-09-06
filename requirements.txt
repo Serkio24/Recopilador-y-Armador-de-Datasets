@@ -1,0 +1,15 @@
+# Requiere Python 3.10 o superior: en 3.9 la ultima version instalable de
+# yt-dlp es de 2025 y YouTube ya la rechaza ("The page needs to be reloaded").
+
+# Nucleo: busqueda y descarga
+yt-dlp>=2026.8.19
+
+# Lectura del .env
+python-dotenv>=1.0.0
+
+# Solo para el backend opcional de YouTube Data API v3 (YOUTUBE_API_KEY en .env)
+google-api-python-client>=2.100.0
+
+# Transcripcion local (etapa de analisis). Trae PyAV, asi que decodifica los
+# .mp4 sin depender del ffmpeg.exe que usa la descarga.
+faster-whisper>=1.1.0

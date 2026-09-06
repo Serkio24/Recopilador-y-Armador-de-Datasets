@@ -1,0 +1,78 @@
+# -*- coding: utf-8 -*-
+"""Estructuras de datos compartidas por busqueda, descarga y almacenamiento."""
+
+from dataclasses import dataclass, field, asdict
+from typing import Optional
+
+ESTADO_OK = "ok"
+ESTADO_OMITIDO = "omitido"          # ya estaba en el archivo/indice
+ESTADO_DESCARTADO = "descartado"    # bajado pero no cumple filtros (p.ej. horizontal)
+ESTADO_ERROR = "error"
+
+
+@dataclass
+class Candidato:
+    """Un video encontrado en la busqueda, aun sin descargar."""
+
+    video_id: str
+    titulo: str = ""
+    url: str = ""
+    duracion: Optional[float] = None
+    canal: str = ""
+    origen: str = "ytdlp"           # "ytdlp" | "api"
+
+    def __post_init__(self):
+        if not self.url:
+            self.url = "https://www.youtube.com/watch?v=%s" % self.video_id
+
+
+@dataclass
+class RegistroVideo:
+    """Resultado de intentar descargar un candidato."""
+
+    video_id: str
+    tema: str = ""
+    titulo: str = ""
+    url: str = ""
+    canal: str = ""
+    duracion: Optional[float] = None
+    ancho: Optional[int] = None
+    alto: Optional[int] = None
+    vistas: Optional[int] = None
+    fecha_subida: str = ""
+    ruta_video: str = ""
+    ruta_meta: str = ""
+    ruta_subs: str = ""
+    bytes_video: int = 0
+    descargado_en: str = ""
+    origen: str = "ytdlp"
+    estado: str = ESTADO_OK
+    detalle: str = ""               # mensaje de error o motivo del descarte
+
+    @property
+    def exitoso(self) -> bool:
+        return self.estado == ESTADO_OK
+
+    def como_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class Resumen:
+    """Cifras finales de una corrida."""
+
+    tema: str = ""
+    pedidos: int = 0
+    candidatos: int = 0
+    descargados: int = 0
+    omitidos: int = 0
+    descartados: int = 0
+    errores: int = 0
+    bytes: int = 0
+    segundos: float = 0.0
+    cancelado: bool = False
+    backend: str = ""
+
+    @property
+    def mb(self) -> float:
+        return self.bytes / (1024.0 * 1024.0)

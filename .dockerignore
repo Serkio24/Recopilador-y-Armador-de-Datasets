@@ -1,0 +1,12 @@
+# El contexto de build se sube entero al demonio de Docker, y este proyecto vive
+# en OneDrive: sin estas exclusiones son varios GB por cada build.
+.venv/
+venv/
+modelos/
+data/
+__pycache__/
+**/__pycache__/
+*.pyc
+.env
+.git/
+.gitignore

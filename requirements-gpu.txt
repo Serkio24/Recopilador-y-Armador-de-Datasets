@@ -1,0 +1,13 @@
+# Aceleracion por GPU para la transcripcion (opcional, ~700 MB).
+#
+# CTranslate2, el motor de faster-whisper, necesita las DLL de cuBLAS y cuDNN
+# para usar una tarjeta NVIDIA. Estos dos paquetes las traen, de modo que NO
+# hace falta instalar el CUDA Toolkit completo.
+#
+#     .venv\Scripts\python.exe -m pip install -r requirements-gpu.txt
+#
+# Sin esto la transcripcion funciona igual, pero por CPU: se pasa de unos
+# segundos por Short a cerca de un minuto.
+
+nvidia-cublas-cu12
+nvidia-cudnn-cu12

@@ -1,0 +1,49 @@
+# Un solo servicio, pensado para `docker compose run` y no para `up`: cada
+# invocacion es una corrida del CLI que termina.
+#
+#   docker compose run --rm app --cli --tema "pesca artesanal" --n 50
+#   docker compose run --rm app --analizar --exportar
+#   docker compose run --rm app --exportar-csv --tema "pesca artesanal"
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        CON_GPU: "1"          # "0" para una imagen solo-CPU
+    image: recopilador-shorts
+
+    volumes:
+      # Bind mounts y no volumenes con nombre: la ventana nativa de Windows y el
+      # contenedor tienen que ver el mismo index.sqlite, o el corpus y lo que se
+      # deduce de el se desincronizan.
+      - ./data:/app/data
+      # Fuera de data/ a proposito: vaciar el corpus no debe obligar a volver a
+      # bajar los ~1,5 GB de large-v3.
+      - ./modelos:/app/modelos
+
+    environment:
+      # Ollama corre en el host, no aqui: reaprovecha el modelo ya descargado y
+      # evita repartir los 6 GB de VRAM entre dos contenedores.
+      # OJO: Ollama escucha en 127.0.0.1 por defecto y desde el contenedor no se
+      # alcanza. Hay que crear la variable de usuario OLLAMA_HOST=0.0.0.0:11434
+      # en Windows y reiniciar Ollama.
+      OLLAMA_URL: http://host.docker.internal:11434
+      # Backend opcional de YouTube Data API v3. Sin valor, se busca con yt-dlp.
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+
+    # Redundante en Docker Desktop, que ya resuelve host.docker.internal; deja el
+    # compose funcionando tambien sobre un Docker de Linux.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    # Para que el progreso video a video se vea en vivo.
+    tty: true
