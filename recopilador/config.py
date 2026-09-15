@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
+from .plataforma import carpetas_ffmpeg_tipicas
+
 RAIZ = Path(__file__).resolve().parent.parent
 
 # Extensiones que cuentan como video. El merge_output_format es mp4, pero yt-dlp
@@ -27,24 +29,19 @@ _cargar_env()
 
 
 def localizar_ffmpeg() -> Optional[str]:
-    """Carpeta que contiene ffmpeg.exe, o None si no se encuentra.
+    """Carpeta que contiene el ejecutable de ffmpeg, o None si no se encuentra.
 
-    Se busca tambien fuera del PATH porque winget lo instala sin refrescar la
-    variable en las terminales ya abiertas.
+    Se busca tambien fuera del PATH porque ninguno de los dos gestores lo deja
+    donde el proceso lo va a ver: winget no refresca la variable en las
+    terminales ya abiertas, y en macOS una app abierta desde el Finder hereda
+    un PATH minimo, sin el /opt/homebrew/bin donde instala Homebrew. Las rutas
+    concretas de cada sistema las pone `plataforma.carpetas_ffmpeg_tipicas()`.
     """
     en_path = shutil.which("ffmpeg")
     if en_path:
         return str(Path(en_path).parent)
 
-    candidatos = []
-    local = os.getenv("LOCALAPPDATA")
-    if local:
-        candidatos.extend(
-            Path(local).glob("Microsoft/WinGet/Packages/*FFmpeg*/**/bin/ffmpeg.exe"))
-    for base in (r"C:\ffmpeg\bin", r"C:\Program Files\ffmpeg\bin"):
-        candidatos.append(Path(base) / "ffmpeg.exe")
-
-    for c in candidatos:
+    for c in carpetas_ffmpeg_tipicas():
         if c.exists():
             return str(c.parent)
     return None

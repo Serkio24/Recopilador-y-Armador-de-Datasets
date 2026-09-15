@@ -3,28 +3,45 @@
 
 Mismo criterio que `recopilador.entorno`: si algo falta, la corrida no falla a
 mitad de un lote de doscientos videos con una traza incomprensible, sino que se
-dice antes y con el comando exacto que lo arregla.
+dice antes y con el comando exacto que lo arregla. El comando lo pone
+`recopilador.plataforma`, que sabe en que sistema estamos.
 """
 
 from typing import List, Optional
+
+from recopilador.plataforma import ES_MAC, INSTALAR_OLLAMA, PYTHON_VENV
 
 from .config import AjustesAnalisis
 
 RECETA_WHISPER = (
     "Instálalo con:\n"
-    "    .venv\\Scripts\\python.exe -m pip install -r requirements.txt")
+    "    %s -m pip install -r requirements.txt" % PYTHON_VENV)
 
-RECETA_GPU = (
-    "Para usar la tarjeta NVIDIA hacen falta las DLL de cuBLAS y cuDNN. No es "
-    "necesario instalar el CUDA Toolkit; basta con:\n"
-    "    .venv\\Scripts\\python.exe -m pip install -r requirements-gpu.txt")
+# En Windows/Linux con tarjeta NVIDIA la GPU es cuestión de instalar dos wheels.
+# En un Mac no hay nada que instalar: CTranslate2, el motor de faster-whisper,
+# solo tiene backend CUDA --no usa Metal ni MPS-- y las wheels de NVIDIA ni
+# siquiera existen para macOS. Ahí la única palanca es el tamaño del modelo.
+if ES_MAC:
+    RECETA_GPU = (
+        "En un Mac no hay forma de acelerarlo: CTranslate2, el motor de "
+        "faster-whisper, solo sabe usar CUDA, y no existe versión para Metal. "
+        "No instales requirements-gpu.txt: esas wheels son de NVIDIA y no hay "
+        "ninguna para macOS.\n"
+        "Si el lote se hace largo, la única palanca es bajar el tamaño del "
+        "modelo (medium, small), teniendo en cuenta que eso deja el corpus sin "
+        "comparar con lo transcrito con large-v3.")
+else:
+    RECETA_GPU = (
+        "Para usar la tarjeta NVIDIA hacen falta las DLL de cuBLAS y cuDNN. No es "
+        "necesario instalar el CUDA Toolkit; basta con:\n"
+        "    %s -m pip install -r requirements-gpu.txt" % PYTHON_VENV)
 
 RECETA_OLLAMA = (
     "Instálalo y descarga el modelo con:\n"
-    "    winget install --id Ollama.Ollama -e\n"
+    "    " + INSTALAR_OLLAMA + "\n"
     "    ollama pull %s\n"
     "Ollama queda corriendo en segundo plano; si acabas de instalarlo, ábrelo "
-    "una vez desde el menú de inicio.")
+    "una vez desde " + ("Launchpad." if ES_MAC else "el menú de inicio."))
 
 
 def hay_faster_whisper() -> bool:
@@ -38,7 +55,9 @@ def hay_faster_whisper() -> bool:
 def hay_gpu() -> bool:
     """True si CTranslate2 ve una tarjeta utilizable.
 
-    Es una consulta barata: no carga ningun modelo, solo pregunta al runtime.
+    Es una consulta barata: no carga ningun modelo, solo pregunta al runtime. En
+    un Mac devuelve False siempre, porque CTranslate2 no trae mas backend que
+    CUDA.
     """
     try:
         import ctranslate2
@@ -82,6 +101,10 @@ def avisos(ajustes: Optional[AjustesAnalisis] = None) -> List[str]:
     """Cosas que no impiden analizar pero conviene saber antes de empezar."""
     ajustes = ajustes or AjustesAnalisis()
     if ajustes.device != "cpu" and hay_faster_whisper() and not hay_gpu():
+        if ES_MAC:
+            return ["La transcripción irá por CPU: en un Mac no hay otra "
+                    "opción, y un Short pasa de segundos a cerca de un "
+                    "minuto.\n" + RECETA_GPU]
         return ["No se detecta GPU utilizable: la transcripción irá por CPU y "
                 "tardará del orden de diez veces más.\n" + RECETA_GPU]
     return []

@@ -1,0 +1,4 @@
+# Los .sh tienen que llegar al Mac con finales de linea LF. Con CRLF, el
+# retorno de carro se cuela en el shebang, bash busca un interprete llamado
+# "bash<CR>" y contesta "bad interpreter: no such file or directory".
+*.sh text eol=lf

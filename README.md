@@ -51,6 +51,39 @@ cae a un modo degradado de un solo cliente de reproducción y falla muy a menudo
 *"The page needs to be reloaded"* o `HTTP 403`. yt-dlp solo activa Deno por su cuenta, así
 que `config.py` detecta el que haya instalado y se lo declara.
 
+## En un Mac
+
+Funciona igual que en Windows salvo por una cosa, y es gorda: **no hay GPU**. CTranslate2, el
+motor de faster-whisper, solo tiene backend CUDA —no usa Metal ni MPS—, así que la
+transcripción va por CPU sí o sí y `requirements-gpu.txt` **no se instala**: esas wheels son de
+NVIDIA y no existen para macOS. Ollama en cambio sí acelera con Metal, de modo que la
+clasificación va igual o mejor que en el portátil.
+
+```sh
+brew install python@3.11 ffmpeg node
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+
+brew install --cask ollama
+ollama pull qwen2.5:7b-instruct
+```
+
+El `python3` que trae macOS es el 3.9 de Apple y no sirve: el yt-dlp más nuevo instalable ahí
+es de 2025 y YouTube lo rechaza. De ahí el `python@3.11` de Homebrew, que además trae un Tcl/Tk
+decente —el del sistema es 8.5 y la ventana de Tk se ve mal y se cuelga en algunos diálogos—.
+
+Luego, `./recopilador.sh` para la ventana y `./recopilador-docker.sh` para el CLI en
+contenedor. Son los equivalentes de los dos `.bat`.
+
+Dos avisos más:
+
+- **Si se abre desde el Finder**, la app hereda un `PATH` mínimo que no incluye
+  `/opt/homebrew/bin`, así que no vería ni ffmpeg ni Node. `localizar_ffmpeg()` mira ahí de
+  todas formas, pero para Node no hay red de seguridad: mejor lanzarlo desde la terminal.
+- **Memoria**: `large-v3` en int8 (~1,5 GB) y `qwen2.5:7b` (~4,7 GB) a la vez piden 16 GB de
+  memoria unificada para no tirar de swap. Y en un Mac con Intel el 7b va por CPU, donde es
+  inusable: ahí conviene un modelo de lenguaje más pequeño.
+
 ## En Docker
 
 Alternativa a la instalación de arriba para **el modo sin interfaz**. La imagen trae ya
@@ -113,6 +146,11 @@ Hay que hacer dos cosas, y el orden da igual:
 
 1. Borrar (o comentar) el bloque `deploy:` entero del `docker-compose.yml`.
 2. Construir sin las libs de CUDA: `docker compose build --build-arg CON_GPU=0`.
+
+En un Mac eso ya viene hecho en `docker-compose.mac.yml`, que se usa **en lugar** del otro
+fichero (`docker compose -f docker-compose.mac.yml run --rm app ...`, o directamente
+`./recopilador-docker.sh`). Es un fichero completo y no un override justo por lo que se dice
+abajo.
 
 No sirve intentar anularlo con un fichero de override: compose fusiona la lista de `devices`
 en vez de reemplazarla, y la reserva sigue ahí. La transcripción irá entonces por CPU, del
@@ -215,6 +253,7 @@ la key, la librería o la cuota, cae solo a yt-dlp.
 | Archivo | Papel |
 |---|---|
 | `recopilador/config.py` | parámetros, rutas y localización de ffmpeg y del motor JS |
+| `recopilador/plataforma.py` | lo que cambia entre Windows y macOS: rutas, comandos de las recetas, abrir carpetas |
 | `recopilador/entorno.py` | comprobación de Python, yt-dlp y ffmpeg antes de descargar |
 | `recopilador/search/` | backends de búsqueda y verificación de Shorts |
 | `recopilador/downloader.py` | descarga de un vídeo, en dos fases |

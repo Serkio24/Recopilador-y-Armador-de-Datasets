@@ -6,17 +6,24 @@ yt-dlp que se puede instalar ahi y la corrida termina en cero descargas sin deci
 por que. Lo mismo pasa sin ffmpeg: el unico formato que queda es el 18, que
 YouTube ya bloquea. Estas comprobaciones convierten esos fallos mudos en un
 mensaje concreto y accionable.
+
+Los comandos de las recetas salen de `plataforma`: un mensaje que manda ejecutar
+winget en un Mac deja al usuario tan parado como el fallo mudo que se queria
+evitar.
 """
 
 import sys
 
+from .plataforma import CREAR_VENV, INSTALAR_FFMPEG, LANZADOR, PYTHON_VENV
+
 PYTHON_MINIMO = (3, 10)
 YTDLP_MINIMO = (2026, 1, 1)
 
-RECETA = ("Abre la app con recopilador.bat, que usa el entorno del proyecto. Si el "
+RECETA = ("Abre la app con %s, que usa el entorno del proyecto. Si el "
           "entorno no existe, crealo con:\n"
-          "    py -3.11 -m venv .venv\n"
-          "    .venv\Scripts\python.exe -m pip install -r requirements.txt")
+          "    %s\n"
+          "    %s -m pip install -r requirements.txt"
+          % (LANZADOR, CREAR_VENV, PYTHON_VENV))
 
 
 def _tupla(version: str) -> tuple:
@@ -65,7 +72,7 @@ def problemas(settings=None) -> list:
             "yt-dlp %s esta desfasado: YouTube cambia su proteccion cada pocas "
             "semanas y las versiones viejas dejan de poder descargar.\n"
             "Actualizalo con:\n"
-            "    .venv\Scripts\python.exe -m pip install -U yt-dlp" % v)
+            "    %s -m pip install -U yt-dlp" % (v, PYTHON_VENV))
 
     if settings is None:
         try:
@@ -79,6 +86,6 @@ def problemas(settings=None) -> list:
             "en pistas separadas; sin ffmpeg para unirlas solo queda el formato 18, "
             "que YouTube bloquea, y no se descarga nada.\n"
             "Instalalo con:\n"
-            "    winget install --id Gyan.FFmpeg -e --scope user")
+            "    %s" % INSTALAR_FFMPEG)
 
     return fallos

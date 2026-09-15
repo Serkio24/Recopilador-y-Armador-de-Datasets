@@ -1,0 +1,44 @@
+# Version para macOS del compose. Se usa sola, no apilada sobre el otro fichero:
+#
+#   docker compose -f docker-compose.mac.yml run --rm app --cli --tema "pesca"
+#
+# o, mas corto, con el lanzador: ./recopilador-docker.sh --cli --tema "pesca"
+#
+# Es un fichero completo y no una superposicion a proposito: lo unico que habria
+# que quitar del original es la reserva de dispositivos nvidia, y las reglas de
+# fusion de compose no garantizan que una lista vacia borre una lista del fichero
+# base. Con un duplicado corto se sabe exactamente lo que se ejecuta.
+#
+# Dos cosas del compose de Windows no valen aqui:
+#   - la reserva `driver: nvidia` pide un driver que en un Mac no existe, y la
+#     orden falla antes de arrancar el contenedor;
+#   - CON_GPU=1 instala cuBLAS y cuDNN, wheels de NVIDIA que solo existen para
+#     x86_64: en Apple Silicon la imagen ni siquiera llega a construirse.
+#
+# Aviso: en un Mac el contenedor solo aporta el entorno (ffmpeg, node, Python
+# 3.11). No hay GPU que pasarle, y el .venv nativo va igual de rapido o mas.
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        CON_GPU: "0"
+    image: recopilador-shorts-mac
+
+    volumes:
+      - ./data:/app/data
+      - ./modelos:/app/modelos
+
+    environment:
+      # Ollama corre en el host (nativo, con Metal) y no aqui dentro: dentro del
+      # contenedor iria por CPU emulada y el 7b seria inusable. Igual que en
+      # Windows, hay que exponerlo: launchctl setenv OLLAMA_HOST 0.0.0.0:11434
+      # y reiniciar Ollama, porque por defecto solo escucha en 127.0.0.1.
+      OLLAMA_URL: http://host.docker.internal:11434
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    tty: true

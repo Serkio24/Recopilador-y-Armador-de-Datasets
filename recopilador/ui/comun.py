@@ -6,10 +6,12 @@ que trabaja y van escribiendo su progreso en un log de colores. Esto es esa
 mecánica, para que no haya dos copias que se vayan separando con el tiempo.
 """
 
-import os
-from pathlib import Path
 from tkinter import ttk
 from tkinter.scrolledtext import ScrolledText
+
+# Reexportado: las dos pestañas lo importan de aquí desde siempre, pero el
+# cómo se abre una carpeta es cosa del sistema y no de la ventana.
+from ..plataforma import abrir_carpeta  # noqa: F401
 
 PADDING = 8
 
@@ -68,14 +70,3 @@ class PanelBase(ttk.Frame):
 
     def _evento(self, tipo, datos):
         raise NotImplementedError
-
-
-def abrir_carpeta(ruta):
-    """Abre una carpeta en el explorador del sistema, creándola si hace falta."""
-    ruta = Path(ruta)
-    ruta.mkdir(parents=True, exist_ok=True)
-    try:
-        os.startfile(str(ruta))                     # Windows
-    except AttributeError:                          # otros sistemas
-        import subprocess
-        subprocess.Popen(["xdg-open", str(ruta)])
