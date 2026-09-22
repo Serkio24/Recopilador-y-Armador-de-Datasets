@@ -93,6 +93,8 @@ def recolectar(tema: str,
         if cancel_event is not None and cancel_event.is_set():
             resumen.cancelado = True
 
+        _resolver_paises(store, settings, log)
+
         _limpiar_parciales(settings)
         resumen.segundos = time.time() - inicio
         store.registrar_busqueda(tema, resumen.backend, n, resumen.candidatos,
@@ -103,6 +105,27 @@ def recolectar(tema: str,
     finally:
         if store_propio:
             store.cerrar()
+
+
+def _resolver_paises(store: Store, settings, log):
+    """Rellena `pais_canal` de los canales pendientes, si hay API key.
+
+    Se hace al final y por canal, no por video: un lote de 50 Shorts de pocos
+    canales se resuelve con una sola llamada de 1 unidad de cuota. Sin key no
+    es un error: la columna queda vacia y el resto del corpus no se resiente.
+    """
+    from .search import canal_info
+
+    try:
+        pendientes = store.canales_sin_pais()
+        if not pendientes:
+            return
+        encontrados = canal_info.paises(pendientes, settings, log=log)
+        tocadas = store.fijar_pais(encontrados)
+        if tocadas:
+            log("pais anotado en %d videos" % tocadas)
+    except canal_info.ApiNoDisponible as exc:
+        log("sin pais de canal (%s); el resto del corpus no se ve afectado" % exc)
 
 
 def _contabilizar(reg: RegistroVideo, resumen: Resumen):

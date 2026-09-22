@@ -250,7 +250,8 @@ class AnalisisStore:
     def filas_dataset(self, esquema: str, tema: Optional[str] = None,
                       solo_clasificados: bool = False) -> List[sqlite3.Row]:
         sql = ("SELECT v.video_id, v.tema, v.titulo, v.url, v.canal, v.duracion, "
-               "       v.ancho, v.alto, v.vistas, v.fecha_subida, v.descargado_en, "
+               "       v.ancho, v.alto, v.vistas, v.fecha_subida, "
+               "       v.publicado_en, v.pais_canal, v.descargado_en, "
                "       t.texto, t.idioma, t.prob_idioma, t.n_palabras, "
                "       t.modelo AS modelo_voz, "
                "       c.campos_json, c.modelo AS modelo_llm, c.fuente, "

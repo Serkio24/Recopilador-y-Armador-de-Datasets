@@ -244,9 +244,16 @@ los candidatos, en este orden:
 3. **Resultados de texto**, verificando uno a uno contra `youtube.com/shorts/<id>`, que solo
    responde 200 si el vídeo es realmente un Short.
 
-Con `YOUTUBE_API_KEY` en el `.env` se usa además la YouTube Data API v3 para descubrir
-(100 unidades de cuota por búsqueda, ~100 búsquedas diarias en el plan gratuito). Si falta
-la key, la librería o la cuota, cae solo a yt-dlp.
+Quién descubre lo decide `BUSCADOR_VIDEOS` (`ytdlp` por defecto, o `api`, o `auto`), **no
+la presencia de la key**. La distinción importa porque los dos usos de la API cuestan cosas
+muy distintas: buscar con `search.list` son 100 unidades por búsqueda —unas 100 búsquedas
+diarias con las 10.000 gratuitas, menos descubrimiento del que da yt-dlp sin gastar nada—,
+mientras que el país del canal son 1 unidad por cada 50 canales. Por eso poner la key para
+tener el país ya no cambia el buscador de paso. Con `api` o `auto`, si falta la librería o
+se agota la cuota, cae solo a yt-dlp.
+
+Las descargas en sí las hace yt-dlp y **no consumen cuota de API**: las 10.000 unidades no
+son un techo de descargas.
 
 ## Estructura del código
 
@@ -282,6 +289,34 @@ Dos decisiones que conviene no deshacer sin motivo:
 - **El límite de resolución se aplica al lado corto**, mediante `format_sort: res:N`. En un
   Short vertical la altura es el lado largo (1280, 1920), así que filtrar por `height<=720`
   dejaba fuera todo salvo los 360x640.
+
+## Columnas del dataset
+
+Cada fila del CSV empieza por los metadatos del vídeo, en este orden:
+
+| Columna | Qué es |
+|---|---|
+| `video_id`, `url`, `tema` | identificador, enlace y tema con el que se buscó |
+| `titulo`, `canal` | título y nombre del canal |
+| `duracion`, `ancho`, `alto`, `vistas` | segundos, píxeles y reproducciones al descargar |
+| `fecha_subida` | fecha de publicación en ISO, `2025-11-26` |
+| `publicado_en` | fecha **y hora** de publicación en UTC, `2025-11-26T14:35:45Z`; vacía si YouTube no la da |
+| `pais_canal` | código ISO-3166 del país **que el canal declara en su perfil** |
+| `descargado_en` | cuándo lo bajó esta herramienta (no es un dato del vídeo) |
+
+Después van las de voz (`idioma`, `prob_idioma`, `n_palabras`, `transcripcion`), las que
+defina el esquema, y las de traza (`fuente_etiquetas`, `modelo_voz`, `modelo_llm`,
+`clasificado_en`, `error`).
+
+Sobre `pais_canal` conviene no esperar de más: **YouTube no publica desde dónde se sube un
+vídeo**, ese dato no existe en ninguna API. Lo que hay es el país que el dueño del canal
+declara en su perfil, que es opcional —muchos lo dejan en blanco, así que la columna sale
+parcialmente vacía—, se refiere al canal y no al vídeo, y no dice dónde se grabó. Sale de
+`channels.list` de la YouTube Data API v3 y necesita `YOUTUBE_API_KEY`; sin key todo lo
+demás funciona igual y solo esa columna queda vacía.
+
+El idioma no es un sustituto del país: en el propio corpus hay canales con nombre turco y
+`language = 'es'`.
 
 ## Cómo se construye el dataset
 

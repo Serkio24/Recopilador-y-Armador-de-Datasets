@@ -16,13 +16,23 @@ def buscar(tema: str,
            forzar_backend: Optional[str] = None) -> Tuple[List[Candidato], str]:
     """Devuelve (candidatos, nombre_del_backend_usado).
 
-    Con YOUTUBE_API_KEY presente se usa la API de YouTube; si falla por cuota,
-    permisos o falta de libreria, cae automaticamente a yt-dlp.
+    Lo elige `settings.buscador` ("ytdlp" | "api" | "auto"), no la mera
+    presencia de la key: esta hace falta tambien para el pais del canal, y
+    antes ponerla en el .env cambiaba el buscador de paso, limitando el
+    descubrimiento a las ~100 busquedas que dan 10.000 unidades de cuota.
+    Con la API elegida, si falla por cuota, permisos o falta de libreria, cae
+    automaticamente a yt-dlp.
     """
     log = log or (lambda _m: None)
-    usar_api = (forzar_backend == api_source.NOMBRE) or (
-        forzar_backend is None and api_source.disponible(settings)
-    )
+    preferencia = (getattr(settings, "buscador", "ytdlp") or "ytdlp").lower()
+    if forzar_backend is not None:
+        usar_api = forzar_backend == api_source.NOMBRE
+    elif preferencia == api_source.NOMBRE:
+        usar_api = True
+    elif preferencia == "auto":
+        usar_api = api_source.disponible(settings)
+    else:
+        usar_api = False
 
     if usar_api:
         log("backend de busqueda: YouTube Data API v3")

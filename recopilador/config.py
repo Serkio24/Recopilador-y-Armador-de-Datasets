@@ -79,6 +79,15 @@ class Settings:
     youtube_api_key: Optional[str] = field(
         default_factory=lambda: os.getenv("YOUTUBE_API_KEY") or None
     )
+    # Que backend descubre videos: "ytdlp" | "api" | "auto".
+    # Va aparte de la key a proposito. La key hace falta para el pais del canal
+    # (channels.list, 1 unidad por cada 50 canales), pero buscar con la API
+    # cuesta 100 unidades por busqueda: con las 10.000 diarias serian ~100
+    # busquedas, bastante menos descubrimiento del que da yt-dlp gratis. Con
+    # "auto" se recupera el comportamiento antiguo de usar la API si hay key.
+    buscador: str = field(
+        default_factory=lambda: (os.getenv("BUSCADOR_VIDEOS") or "ytdlp").lower()
+    )
     ffmpeg_dir: Optional[str] = field(default_factory=localizar_ffmpeg)
     js_runtimes: dict = field(default_factory=localizar_js_runtime)
 

@@ -18,9 +18,14 @@ from typing import Optional, Tuple
 from .models import EsquemaDataset
 from .store import AnalisisStore
 
-# Metadatos del video que acompanan a cada fila, en este orden.
+# Metadatos del video que acompanan a cada fila, en este orden. El orden es
+# posicional: `_fila_csv` tiene que emitir los valores en esta misma secuencia.
+# `publicado_en` es la hora exacta de publicacion (UTC) cuando YouTube la da;
+# `pais_canal` es el pais que el canal declara en su perfil, no donde se subio
+# el video: es opcional y muchos canales lo dejan vacio.
 COLUMNAS_BASE = ["video_id", "url", "tema", "titulo", "canal", "duracion",
-                 "ancho", "alto", "vistas", "fecha_subida", "descargado_en"]
+                 "ancho", "alto", "vistas", "fecha_subida", "publicado_en",
+                 "pais_canal", "descargado_en"]
 
 COLUMNAS_VOZ = ["idioma", "prob_idioma", "n_palabras", "transcripcion"]
 
@@ -86,7 +91,9 @@ def _fila_csv(fila, esquema: EsquemaDataset) -> list:
 
     valores = [fila["video_id"], fila["url"], fila["tema"], fila["titulo"],
                fila["canal"], fila["duracion"], fila["ancho"], fila["alto"],
-               fila["vistas"], fila["fecha_subida"], fila["descargado_en"],
+               fila["vistas"], fila["fecha_subida"],
+               fila["publicado_en"] or "", fila["pais_canal"] or "",
+               fila["descargado_en"],
                fila["idioma"] or "",
                "" if fila["prob_idioma"] is None else "%.3f" % fila["prob_idioma"],
                fila["n_palabras"] if fila["n_palabras"] is not None else "",

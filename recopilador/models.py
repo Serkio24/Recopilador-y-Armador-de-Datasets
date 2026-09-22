@@ -35,11 +35,14 @@ class RegistroVideo:
     titulo: str = ""
     url: str = ""
     canal: str = ""
+    canal_id: str = ""              # UC...; hace falta para consultar el pais del canal
     duracion: Optional[float] = None
     ancho: Optional[int] = None
     alto: Optional[int] = None
     vistas: Optional[int] = None
-    fecha_subida: str = ""
+    fecha_subida: str = ""          # YYYY-MM-DD
+    publicado_en: str = ""          # fecha y hora UTC en ISO-8601, si YouTube la da
+    pais_canal: str = ""            # ISO-3166 alfa-2 autodeclarado por el canal; suele faltar
     ruta_video: str = ""
     ruta_meta: str = ""
     ruta_subs: str = ""

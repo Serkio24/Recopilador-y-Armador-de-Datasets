@@ -21,11 +21,14 @@ CREATE TABLE IF NOT EXISTS videos (
     titulo        TEXT,
     url           TEXT,
     canal         TEXT,
+    canal_id      TEXT,
     duracion      REAL,
     ancho         INTEGER,
     alto          INTEGER,
     vistas        INTEGER,
     fecha_subida  TEXT,
+    publicado_en  TEXT,
+    pais_canal    TEXT,
     ruta_video    TEXT,
     ruta_meta     TEXT,
     ruta_subs     TEXT,
@@ -53,10 +56,18 @@ CREATE TABLE IF NOT EXISTS busquedas (
 """
 
 _CAMPOS = [
-    "video_id", "tema", "titulo", "url", "canal", "duracion", "ancho", "alto",
-    "vistas", "fecha_subida", "ruta_video", "ruta_meta", "ruta_subs",
+    "video_id", "tema", "titulo", "url", "canal", "canal_id", "duracion",
+    "ancho", "alto", "vistas", "fecha_subida", "publicado_en", "pais_canal",
+    "ruta_video", "ruta_meta", "ruta_subs",
     "bytes_video", "descargado_en", "origen", "estado", "detalle",
 ]
+
+# Columnas anadidas despues de la primera version, para bases ya creadas.
+_COLUMNAS_NUEVAS = {
+    "canal_id": "TEXT",
+    "publicado_en": "TEXT",
+    "pais_canal": "TEXT",
+}
 
 
 class Store:
@@ -73,7 +84,33 @@ class Store:
     def init_db(self):
         with self._lock:
             self._con.executescript(ESQUEMA)
+            self._migrar()
             self._con.commit()
+
+    def _migrar(self):
+        """Pone al dia bases creadas por versiones anteriores.
+
+        `CREATE TABLE IF NOT EXISTS` no toca una tabla que ya existe, asi que
+        sin esto una base de antes se quedaria sin las columnas nuevas y toda
+        escritura fallaria con "no such column".
+        """
+        columnas = {f[1] for f in self._con.execute("PRAGMA table_info(videos)")}
+        for nombre, tipo in _COLUMNAS_NUEVAS.items():
+            if nombre not in columnas:
+                self._con.execute(
+                    "ALTER TABLE videos ADD COLUMN %s %s" % (nombre, tipo))
+
+        # `fecha_subida` se guardaba como YYYYMMDD, tal cual la da yt-dlp: Excel
+        # lo abre como un numero y pandas necesita un `format=` explicito. Se
+        # normaliza a ISO. Solo toca las de 8 digitos, asi que repetirlo no hace
+        # nada la segunda vez.
+        self._con.execute(
+            "UPDATE videos SET fecha_subida = "
+            "    substr(fecha_subida, 1, 4) || '-' || "
+            "    substr(fecha_subida, 5, 2) || '-' || substr(fecha_subida, 7, 2) "
+            "WHERE fecha_subida IS NOT NULL "
+            "  AND length(fecha_subida) = 8 "
+            "  AND fecha_subida GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'")
 
     def cerrar(self):
         with self._lock:
@@ -210,6 +247,54 @@ class Store:
         with self._lock:
             self._con.execute(sql, valores)
             self._con.commit()
+
+    def actualizar_campos(self, video_id: str, **campos) -> int:
+        """Escribe solo los campos indicados de un video, sin tocar el resto.
+
+        Los valores vacios se ignoran: el backfill no debe borrar un dato bueno
+        cuando la re-consulta a YouTube vuelve incompleta.
+        """
+        utiles = {k: v for k, v in campos.items()
+                  if k in _CAMPOS and k != "video_id" and v not in (None, "")}
+        if not utiles:
+            return 0
+        nombres = sorted(utiles)
+        sql = "UPDATE videos SET %s WHERE video_id = ?" % (
+            ", ".join("%s = ?" % n for n in nombres))
+        with self._lock:
+            cur = self._con.execute(sql, [utiles[n] for n in nombres] + [video_id])
+            self._con.commit()
+        return cur.rowcount
+
+    def canales_sin_pais(self) -> List[str]:
+        """Ids de canal con algun video cuyo pais aun no se ha resuelto."""
+        with self._lock:
+            filas = self._con.execute(
+                "SELECT DISTINCT canal_id FROM videos "
+                "WHERE canal_id IS NOT NULL AND canal_id != '' "
+                "  AND (pais_canal IS NULL OR pais_canal = '')"
+            ).fetchall()
+        return [f[0] for f in filas]
+
+    def fijar_pais(self, paises: dict) -> int:
+        """Escribe el pais de cada canal en todos sus videos. Devuelve filas tocadas.
+
+        Se hace por canal y no por video: un canal con treinta Shorts se
+        resuelve con una sola consulta a la API.
+        """
+        if not paises:
+            return 0
+        tocadas = 0
+        with self._lock:
+            for canal_id, pais in paises.items():
+                if not pais:
+                    continue
+                cur = self._con.execute(
+                    "UPDATE videos SET pais_canal = ? WHERE canal_id = ?",
+                    (pais, canal_id))
+                tocadas += cur.rowcount
+            self._con.commit()
+        return tocadas
 
     def registrar_busqueda(self, tema, backend, n_pedidos, n_candidatos,
                            n_descargados, cancelado=False):

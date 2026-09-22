@@ -10,7 +10,7 @@ y en una sola fase ese 429 abortaba tambien la descarga del video.
 import io
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -23,6 +23,34 @@ from .models import (Candidato, RegistroVideo, ESTADO_DESCARTADO, ESTADO_ERROR,
 CLAVES_PESADAS = ("formats", "thumbnails", "automatic_captions", "subtitles",
                   "heatmap", "requested_formats", "requested_downloads",
                   "http_headers", "_format_sort_fields")
+
+
+def fecha_iso(upload_date) -> str:
+    """`20251126` (lo que da yt-dlp) -> `2025-11-26`.
+
+    Sin guiones, Excel abre la columna como el numero 20.251.126 y pandas
+    necesita un `format=` explicito para leerla.
+    """
+    s = str(upload_date or "").strip()
+    if len(s) == 8 and s.isdigit():
+        return "%s-%s-%s" % (s[:4], s[4:6], s[6:])
+    return s
+
+
+def momento_iso(timestamp) -> str:
+    """Epoch UTC de la ficha -> `2025-11-26T14:35:45Z`.
+
+    yt-dlp ya trae este campo junto a `upload_date`, con la hora exacta que
+    `upload_date` pierde. Si no viene, se devuelve cadena vacia en vez de
+    inventar una medianoche que nadie ha publicado.
+    """
+    if timestamp in (None, ""):
+        return ""
+    try:
+        momento = datetime.fromtimestamp(int(timestamp), tz=timezone.utc)
+    except (ValueError, OSError, OverflowError):
+        return ""
+    return momento.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # Fallos que no son del video sino del momento: YouTube limitando el ritmo o
@@ -276,11 +304,13 @@ def descargar(cand: Candidato, tema: str, settings, cancel_event=None,
 
             reg.titulo = info.get("title") or reg.titulo
             reg.canal = info.get("channel") or info.get("uploader") or reg.canal
+            reg.canal_id = info.get("channel_id") or ""
             reg.duracion = info.get("duration") or reg.duracion
             reg.ancho = info.get("width")
             reg.alto = info.get("height")
             reg.vistas = info.get("view_count")
-            reg.fecha_subida = info.get("upload_date") or ""
+            reg.fecha_subida = fecha_iso(info.get("upload_date"))
+            reg.publicado_en = momento_iso(info.get("timestamp"))
 
             ruta = _ruta_video(ydl, info, settings)
 
